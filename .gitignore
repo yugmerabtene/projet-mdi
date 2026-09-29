@@ -51,3 +51,18 @@ id_rsa
 .npmrc
 credentials*
 secrets*
+
+# --- Exception : le modèle de configuration ---------------------------------
+# Le « ! » est un point de négation : il remet ce fichier précis en suivi. Il
+# le modèle « moodle/.env.example ». Ce modèle ne contient aucun secret, il ne
+# contient que des emplacements vides, et c'est pourtant le seul fichier qui
+# explique à l'étudiant quoi recopier dans quel fichier.
+#
+# Sans l'exception ci-dessous, le dépôt publierait un laboratoire impossible à
+# démarrer : l'étudiant verrait un message d'erreur talker de variable
+# manquante, et aucun exemple ne lui indiquerait quoi faire.
+#
+# Le « ! » est unPoint de negation : il remet ce fichier précis en suivi. Il
+# annule la règle pour ce seul nom, et seulement lui. La distinction reste
+# nette : le modèle est enregistré, le fichier réel ne l'est pas.
+!moodle/.env.example

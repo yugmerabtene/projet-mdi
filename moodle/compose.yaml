@@ -1,0 +1,470 @@
+# ===========================================================================
+# compose.yaml — orchestration du laboratoire Moodle
+# ---------------------------------------------------------------------------
+# RÔLE DU FICHIER
+# Ce fichier décrit DEUX conteneurs qui ne peuvent pas fonctionner l'un sans
+# l'autre : une application (Moodle) et une base de données (MariaDB).
+#
+#   docker compose up --build    construit l'image et démarre les deux services
+#   docker compose ps            affiche l'état et la santé de chaque service
+#   docker compose logs -f moodle   suit le journal d'un seul service
+#   docker compose down          arrête et supprime les conteneurs ET le réseau
+#   docker compose down -v       arrête, supprime, ET efface les volumes
+#
+# CE QU'APPORTE COMPOSE, ET QUE « DOCKER RUN » NE SAIT PAS FAIRE
+#   1. UN RÉSEAU COMMUN. Chaque service reçoit un nom résolvable. Moodle
+#      configure sa base avec le nom « bd » : aucune adresse IP à deviner, et
+#      elle reste valable même si les conteneurs changent d'adresse.
+#   2. UNE DÉPENDANCE DÉCLARÉE. « depends_on » exprime qui attend quoi. On ne
+#      laisse pas Moodle deviner si la base est prête.
+#   3. UN DÉMARRAGE EN ORDRE. Les services sont créés dans l'ordre déclaré.
+#   4. UN SEUL FICHIER VERSIONNÉ. La pile se reproduit à l'identique, sur
+#      n'importe quel poste, en relisant ce fichier. C'est tout l'intérêt.
+#
+# NOM DU FICHIER
+# On retient compose.yaml, la forme recommandée par la spécification. Le
+# laboratoire précédent utilisait déjà cette forme : la convention ne change pas
+# d'un chapitre à l'autre.
+#
+# VARIABLE DE SUBSTITUTION
+# La syntaxe « ${NOM} » remplace le texte par la valeur de la variable
+# d'environnement NOM. La syntaxe « ${NOM:?message} » fait PLUS : si la
+# variable est absente ou vide, Compose REFUSE de démarrer et affiche le
+# message. C'est le garde-fou principal du laboratoire, et la raison pour
+# laquelle le fichier .env.example ne contient aucun mot de passe en clair.
+# ===========================================================================
+
+# -----------------------------------------------------------------------------
+# RÉSEAUX
+# -----------------------------------------------------------------------------
+# Un réseau dédié, nommé explicitement. Docker en créerait un automatiquement,
+# mais un réseau déclaré porte un nom lisible dans « docker network inspect »
+# et peut être configuré (sous-réseau fixe, par exemple) sans toucher au reste.
+# Réseau interne : « internal: true » EMPÊCHE toute sortie vers l'extérieur.
+#
+# À quoi cela sert-il ici ? Le service Moodle n'a aucune raison de joindre
+# Internet : il parle à la base du laboratoire, c'est tout. Interdire la sortie
+# sortante est une défense simple et efficace : même si Moodle appelait une
+# adresse externe, la connexion échouerait. C'est le principe du moindre
+# privilège appliqué au réseau, sur le même modèle que les capacités Linux
+# retirées dans le laboratoire précédent.
+#
+# CONTREPARTIE ASSUMÉE
+# Un réseau « internal » n'offre pas de passerelle vers Internet. La mise à jour
+# automatique de Moodle, l'envoi de courriel et l'appel à une adresse
+# distante ne fonctionneront donc pas. C'est un choix : un laboratoire isolé
+# est un laboratoire qui ne dépend pas du réseau du salle de classe.
+networks:
+  reseau-labo:
+    name: lab-moodle-reseau
+    driver: bridge
+    internal: true
+
+# -----------------------------------------------------------------------------
+# VOLUMES
+# -----------------------------------------------------------------------------
+# Un volume est un espace de stockage qui survit à « docker compose down ».
+# Sans lui, toutes les données Moodle seraient perdues à chaque arrêt : les
+# cours, les comptes, les fichiers déposés.
+#
+# Deux volumes, et non un seul : la séparation duplicity celle des
+# conteneurs. Le code de Moodle est remplaçable à tout instant, les données
+# ne le sont jamais. Mélanger les deux, c'est ne plus pouvoir mettre à jour
+# l'application sans risquer les données.
+volumes:
+  # Code de l'application. Il est dans un volume, et non dans l'image, parce
+  # que Moodle y écrit un fichier config.php qui contient les identifiants de
+  # la base de données et qui doit survivre à une recréation de conteneur.
+  moodle-code:
+    name: lab-moodle-code
+  # Données de la plateforme : fichiers déposés, cache, sauvegardes.
+  moodle-donnees:
+    name: lab-moodle-donnees
+  # Fichiers internes du serveur MariaDB.
+  bd-donnees:
+    name: lab-moodle-bd-donnees
+
+# -----------------------------------------------------------------------------
+# SERVICES
+# -----------------------------------------------------------------------------
+services:
+
+  # ==========================================================================
+  # SERVICE 1 — La base de données
+  # ==========================================================================
+  # NOM : « bd ». Ce nom est le NOM D'HÔTE du service, utilisable par tous les
+  # autres conteneurs du réseau. On le choisit court et sans point, car il
+  # apparaît dans la configuration de Moodle et dans les messages d'erreur.
+  #
+  # ON NE DÉMARRE PAS LE DÉMARRAGE EN ORDRE
+  # Compose crée les conteneurs dans l'ordre du fichier, mais « créé » ne veut
+  # pas dire « prêt ». MariaDB a besoin de plusieurs secondes pour initialiser
+  # ses fichiers au tout premier lancement. C'est pourquoi Moodle ne se fie
+  # pas à l'ordre de création, mais à la clé « depends_on » et à l'oracle de
+  # santé décrits plus bas.
+  bd:
+
+    # Version figée (11.4, branche à long terme). MariaDB publie une branche
+    # durable, à côté de branches de nouveauté : figer la branche durable,
+    # c'est obtenir des correctifs de sécurité sans changement de comportement
+    # majeur.
+    image: mariadb:11.4
+
+    # Variables d'environnement DU SERTVEUR DE BASE, lues par l'image MariaDB.
+    # Ces quatre variables sont une convention de l'image officielle, pas une
+    # norme du langage SQL : l'image les examine au premier démarrage pour
+    # créer la base, l'utilisateur et les droits correspondants.
+    #
+    #   MARIADB_DATABASE       : nom de la base créée au démarrage
+    #   MARIADB_USER           : utilisateur applicatif créé dans cette base
+    #   MARIADB_PASSWORD       : son mot de passe
+    #   MARIADB_ROOT_PASSWORD  : compte « root », réservé à l'administration
+    #
+    # « :? » rend le refus explicite. Sans valeur, MariaDB refuserait de
+    # démarrer ; avec une valeur VIDE, il démarrerait avec un compte sans
+    # mot de passe, ce qui est pire : l'erreur serait différée et silencieuse.
+    environment:
+      MARIADB_DATABASE: "${MOODLE_DB_NAME:?MOODLE_DB_NAME est absent du fichier .env}"
+      MARIADB_USER: "${MOODLE_DB_USER:?MOODLE_DB_USER est absent du fichier .env}"
+      MARIADB_PASSWORD: "${MOODLE_DB_PASSWORD:?MOODLE_DB_PASSWORD est absent du fichier .env}"
+      MARIADB_ROOT_PASSWORD: "${MOODLE_DB_ROOT_PASSWORD:?MOODLE_DB_ROOT_PASSWORD est absent du fichier .env}"
+
+    # Volume de stockage. La destination /var/lib/mysql n'est pas choisie
+    # librement : c'est le chemin IMPOSÉ par l'image MariaDB. Un chemin
+    # différent, et la base ne verrait aucun de ses fichiers de données.
+    volumes:
+      - bd-donnees:/var/lib/mysql
+
+    # Options de démarrage du serveur de base, transmises à l'exécutable.
+    # Elles remplacent la commande par défaut de l'image.
+    #
+    #   --character-set-server / --collation-server : Moodle exige l'encodage
+    #   UTF-8 sur quatre octets (utf8mb4). C'est la version qui gère
+    #   correctement les caractères hors du plan historique, dont les emojis et
+    #   plusieurs écritures asiatiques. Avec l'encodage trois octets par
+    #   défaut, l'enregistrement d'un emoji échoue ; avec l'encodage latin,
+    #   le français s'affiche mal. Ce réglage évite une classe entière de
+    #   bugs dont la cause est invisible à l'écran.
+    #
+    #   --max-connections : Moodle ouvre plusieurs connexions par requête
+    #   (base applicative, cache, files de session). La valeur par défaut de
+    #   151 est parfois trop basse pour une page qui charge un cours complet.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=200
+
+    # ----------------------------------------------------------------------
+    # Oracle de santé
+    # ----------------------------------------------------------------------
+    # C'est LE point clé de ce laboratoire, et la raison pour laquelle
+    # « depends_on » ne suffit pas.
+    #
+    # Par défaut, « depends_on » ne garantit qu'une seule chose : le service
+    # dépendant est démarrer APRÈS le service dont il dépend. Il ne garantit
+    # PAS que le service est prêt à répondre. Or une base MariaDB lance en
+    # plusieurs temps : elle crée son répertoire, initialise ses fichiers
+    # internes, puis seulement elle accepte les connexions.
+    #
+    # L'oracle de santé comble cette lacune. Compose attend que la commande
+    # ci-dessous RÉUSSISSE avant de lancer le service suivant :
+    #
+    #   --connect          teste une connexion réelle, pas un simple processus
+    #   --innodb_initialized  vérifie que le moteur de stockage est prêt
+    #
+    # Tant que la sonde échoue, le service est « starting ». Dès qu'elle
+    # réussit, il devient « healthy », et c'est seulement alors que Moodle
+    # démarre. On dit que l'initialisation est « pilotée par la santé ».
+    #
+    # Sans cette clé, Moodle démarre en même temps que la base, échoue de se
+    # connecter, et le conteneur s'arrête. C'est le symptôme le plus fréquent
+    # d'une pile Compose qui « ne marche qu'une fois sur deux ».
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # Pendant cette période, un échec de la sonde n'est pas compté comme un
+      # échec. Elle couvre l'initialisation complète de la base, qui est
+      # précisément le moment où la sonde échoue légitimement.
+      start_period: 60s
+
+    # Aucun port publié. C'est un choix structurant : la base n'a pas à être
+    # accessible depuis la machine du développeur. Elle ne l'est que depuis le
+    # réseau du laboratoire. Exposer le port 3306 sur la machine hôte, ce qui
+    # revient souvent dans les exemples trouvés en ligne, offrirait à tout
+    # programme du poste un accès direct à la base.
+    #
+    # Pour vérifier la base en ligne de commande, on passe par le conteneur
+    # lui-même (la commande figure dans le README).
+    expose:
+      - "3306"
+
+    # Arrêt propre. MariaDB a besoin d'une marge pour fermer proprement ses
+    # fichiers de données ; une base arrêtée de force doit être réparée au
+    # démarrage suivant. La valeur par défaut de 10 secondes convient à un
+    # laboratoire.
+    restart: "no"
+
+    # Journalisation bornée, comme dans le laboratoire précédent : une boucle
+    # de redémarrage ne doit pas remplir le disque de la machine.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Étiquettes de découverte, alignées sur celles du laboratoire précédent.
+    labels:
+      com.laboratoire.role: "base-de-donnees"
+      com.laboratoire.pedagogie: "conteneurisation"
+      com.laboratoire.service: "mariadb"
+
+    # ----------------------------------------------------------------------
+    # Durcissement
+    # ----------------------------------------------------------------------
+    security_opt:
+      - no-new-privileges:true
+
+    # cap_drop : on retire TOUTES les capacités, exactement comme au
+    # laboratoire précédent.
+    #
+    # cap_add : puis on restitue, une par une, celles dont ce service a
+    # réellement besoin.
+    #
+    # Ce point complète celui du service moodle, et il corrige une idée fausse
+    # très répandue : le moindre privilège ne signifie PAS « aucun privilège ».
+    # Il signifie « aucun privilège inutile ». Un serveur de base de données
+    # ne peut pas, lui, s'en passer complètement.
+    #
+    #   CHOWN        le script d'entrée de l'image MariaDB donne son
+    #                propriétaire au répertoire de données, créé par le volume
+    #                avec les droits de root.
+    #   DAC_OVERRIDE le même script traverse des répertoires qui ne lui
+    #                appartiennent pas, pour en atteindre les fichiers.
+    #   FOWNER       il modifie les droits des fichiers qu'il récupère.
+    #   SETUID et    l'image MariaDB démarre en root, puis EXÉCUTE le serveur
+    #   SETGID       sous le compte « mysql », dédié et sans pouvoir. Sans ces
+    #                deux capacités, le démarrage s'arrête sur un échec
+    #                « failed switching to mysql : operation not permitted ».
+    #                C'est un échec bruyant, donc sans danger ; mais il faut
+    #                savoir qu'il est attendu dès qu'on retire les capacités
+    #                sans les restituer.
+    #
+    # Le compte « mysql » est donc bien celui qui traite les requêtes. Le root
+    # ne sert qu'à la transition, exactement comme pour Apache et www-data.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+
+    # Plafond de mémoire. MariaDB dimensionne ses tampons au démarrage ; sur une
+    # machine de laboratoire, 512 Mio suffisent et évite que le serveur de base
+    # consomme la mémoire du poste au point de le rendre inutilisable.
+    mem_limit: 512m
+
+    networks:
+      - reseau-labo
+
+  # ==========================================================================
+  # SERVICE 2 — L'application Moodle
+  # ==========================================================================
+  moodle:
+
+    # --- Construction de l'image -------------------------------------------
+    # Le contexte est « . », c'est-à-dire ce répertoire (moodle/). Il contient
+    # le Dockerfile, le script d'entrée, la configuration d'Apache et celle de
+    # PHP. Tout ce dont la construction a besoin est ici, et rien de plus.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lab-moodle:1.0.0
+
+    # --- Variables transmises au conteneur -------------------------------
+    # Seules les variables listées ici entrent dans le conteneur. Le fichier
+    # .env n'y est pas copié : les valeurs sont transmises une par une, ce qui
+    # évite qu'un fichier de secrets se retrouve dans l'image.
+    environment:
+      # Connexion à la base. L'hôte est le NOM du service « bd », pas une
+      # adresse IP : c'est le mécanisme de résolution de noms de Docker qui
+      # joue son rôle.
+      MOODLE_DBNAME_HOST: "bd"
+      MOODLE_DBNAME_PORT: "3306"
+      MOODLE_DB_NAME: "${MOODLE_DB_NAME:?MOODLE_DB_NAME est absent du fichier .env}"
+      MOODLE_DB_USER: "${MOODLE_DB_USER:?MOODLE_DB_USER est absent du fichier .env}"
+      MOODLE_DB_PASSWORD: "${MOODLE_DB_PASSWORD:?MOODLE_DB_PASSWORD est absent du fichier .env}"
+
+      # Adresse publique du site. Elle est écrite dans la base de données au
+      # moment de l'installation, puis sert à construire tous les liens du
+      # site. Une valeur fausse produit un site qui fonctionne mais dont tous
+      # les liens pointent ailleurs : saisir la bonne valeur est donc la
+      # première action de l'étudiant.
+      MOODLE_WWWROOT: "${MOODLE_WWWROOT:?MOODLE_WWWROOT est absent du fichier .env}"
+
+      # Identité de la plateforme et compte d'administration, utilisés une
+      # seule fois, au premier démarrage.
+      MOODLE_FULLNAME: "${MOODLE_FULLNAME:-Plateforme du laboratoire}"
+      MOODLE_SHORTNAME: "${MOODLE_SHORTNAME:-labo}"
+      MOODLE_LANG: "${MOODLE_LANG:-fr}"
+      MOODLE_SUMMARY: "${MOODLE_SUMMARY:?MOODLE_SUMMARY est absent du fichier .env}"
+      MOODLE_ADMIN_USER: "${MOODLE_ADMIN_USER:?MOODLE_ADMIN_USER est absent du fichier .env}"
+      MOODLE_ADMIN_PASSWORD: "${MOODLE_ADMIN_PASSWORD:?MOODLE_ADMIN_PASSWORD est absent du fichier .env}"
+      MOODLE_ADMIN_EMAIL: "${MOODLE_ADMIN_EMAIL:?MOODLE_ADMIN_EMAIL est absent du fichier .env}"
+
+      # Répertoire de données. Il correspond exactement au volume déclaré plus
+      # bas : si les deux divergent, Moodle crée ses fichiers dans le système
+      # de fichiers du conteneur et ils disparaissent au prochain arrêt.
+      MOODLE_DATAROOT: "/srv/moodledata"
+
+    # --- Publication du port ----------------------------------------------
+    # 8081 sur la machine du développeur, 80 dans le conteneur.
+    #
+    #   127.0.0.1   le service ne se répond que sur la boucle locale. La
+    #               plateforme n'est donc PAS joignable depuis le réseau du
+    #               laboratoire ni depuis le réseau de l'entreprise. Sans ce
+    #               « 127.0.0.1: », tout le réseau pourrait atteindre Moodle.
+    #   8081        port choisi pour ne pas entrer en conflit avec le
+    #               laboratoire précédent, qui occupe 8080. Les deux piles
+    #               peuvent ainsi tourner en même temps.
+    #
+    # Le port 80 de droite est celui qu'Apache écoute DANS le conteneur, et il
+    # doit correspondre au EXPOSE du Dockerfile.
+    ports:
+      - "127.0.0.1:8081:80"
+
+    # --- Dépendance à la base de données ----------------------------------
+    # Deux clés, et chacune a un rôle distinct.
+    #
+    # depends_on       exprime la dépendance de cycles. Sans elle, Moodle
+    #                  serait démarré en premier, tout simplement parce qu'il
+    #                  est déclaré en premier dans le fichier.
+    # condition        la forme « service_healthy » attend, de plus, que la
+    #                  sonde de santé du service bd RÉUSSISSE. C'est cette clé
+    #                  qui transforme une dépendance de calendrier en
+    #                  dépendance d'état.
+    #
+    # Sans la condition, le laboratoire serait imparfait de façon discrète : il
+    # fonctionnerait la plupart du temps, et échouerait au premier démarrage
+    # après un « docker compose down -v ».
+    depends_on:
+      bd:
+        condition: service_healthy
+
+    # --- Volume de code -----------------------------------------------------
+    # Le code de l'application est dans un volume, et non dans l'image. La
+    # raison est longue et se trouve dans le Dockerfile, mais elle tient en une
+    # phrase : Moodle écrit un fichier config.php à la racine de son code, ce
+    # fichier contient le lien avec la base de données, et il doit survivre à
+    # la destruction du conteneur. Un fichier placé dans la couche inscriptible
+    # d'un conteneur disparaît à chaque recréation, et Moodle refuserait ensuite
+    # de démarrer en annonçant que les tables existent déjà.
+    #
+    # Au premier démarrage, le script d'entrée dépose le code depuis la copie de
+    # référence conservée dans l'image. Les démarrages suivants n'y touchent
+    # plus.
+    #
+    # Contrepartie à connaître : ce volume fait aussi office de copie
+    # sauvegardée. « docker compose down -v » ne supprime pas seulement les
+    # données de la plateforme, il supprime le code. C'est le comportement
+    # attendu, et la consigne de remise à zéro du laboratoire en tient compte.
+    volumes:
+      - moodle-code:/srv/moodle
+
+    # --- Volume de données -------------------------------------------------
+    # Le volume remplace le répertoire /srv/moodledata de l'image. Les données
+    # survivent donc à « down », et repartent à l'identique au démarrage
+    # suivant : les cours créés la veille sont toujours là.
+      - moodle-donnees:/srv/moodledata
+
+    # --- Répertoires temporaires en mémoire -------------------------------
+    # Le système de fichiers du conteneur n'est PAS monté en lecture seule,
+    # contrairement au laboratoire précédent. Ce n'est pas un oubli : Moodle a
+    # besoin d'écrire dans son propre code au moment de l'installation, et
+    # PHP a besoin d'écrire des fichiers de session.
+    #
+    # On pose donc le même rempart qu'avant, mais au niveau utile : /tmp est un
+    # système de fichiers en RAM, inscriptible, vidé à chaque arrêt. Les
+    # fichiers temporaires de PHP (sessions, fichiers déposés en attente) y
+    # vivent, sans jamais toucher le disque de la machine.
+    tmpfs:
+      - /tmp:mode=1777
+
+    # --- Durcissement ------------------------------------------------------
+    # no-new-privileges : aucun processus ne peut obtenir de droits
+    # supplémentaires, même via un exécutable « setuid ».
+    security_opt:
+      - no-new-privileges:true
+
+    # cap_drop : on retire TOUTES les capacités, exactement comme au
+    # laboratoire précédent.
+    #
+    # cap_add : et on rend ensuite, une à une, les quatre dont ce service a
+    # réellement besoin. C'est la différence essentielle avec le premier
+    # laboratoire, où la liste de restitution était vide : ici, une page PHP
+    # dynamique ne peut pas s'en passer.
+    #
+    #   CHOWN           le script d'entrée donne son propriétaire au volume de
+    #                   données. Sans cette capacité, le démarrage échoue sur
+    #                   un volume créé par Docker avec les droits de root.
+    #   SETUID / SETGID Apache démarre en root, puis fait passer ses
+    #                   processus au compte www-data. Ces deux capacités sont
+    #                   le mécanisme du changement d'identité, et sont
+    #                   strictement confinées à cette transition.
+    #   NET_BIND_SERVICE ouvrir le port 80, qui est un port privilégié
+    #                   (inférieur à 1024) réservé à root sur un système Unix.
+    #
+    # ON NE RESTITUE PAS DAC_OVERRIDE, ET C'EST DÉLIBÉRÉ
+    # Cette capacité autorise root à écrire dans un répertoire qui appartient à
+    # quelqu'un d'autre. Le script d'entrée n'en a pas besoin : chaque
+    # préparation est exécutée par le compte concerné. Le répertoire de langue,
+    # par exemple, est créé par www-data lui-même, et non par root.
+    #
+    # L'avantage est concret : si le script d'entrée tentait un jour de créer un
+    # fichier dans le volume déjà cédé à www-data, il échouerait au lieu de
+    # réussir. Un échec bruyant vaut mieux qu'un contournement silencieux de
+    # l'isolation. Si l'on devait un jour écrire là-bas en tant que root, on
+    # restituerait DAC_OVERRIDE en connaissance de cause, et on le dirait.
+    #
+    # La justification est le but : rendre exactement ce qui est nécessaire,
+    # et rien de plus. Le principe du moindre privilège ne veut pas dire
+    # « aucun privilège », mais « aucun privilège inutile ».
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+
+    # Le système de fichiers du conteneur reste inscriptible, ce qui est
+    # nécessaire à l'installation comme expliqué ci-dessus.
+    read_only: false
+
+    # Plafond de mémoire. Moodle consomme nettement plus qu'une page statique :
+    # le cache de pages et le cache applicatif se logent en mémoire. 1,5 Gio
+    # laissent la place à la base de données sur un poste de laboratoire.
+    mem_limit: 1536m
+
+    # Pas de redémarrage automatique : comme au laboratoire précédent, si
+    # l'étudiant arrête le conteneur pour lire le journal, il ne doit pas le
+    # voir repartir tout seul. La valeur ALWAYS est réservée à la production, où
+    # personne n'est là pour redémarrer à la main.
+    restart: "no"
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    labels:
+      com.laboratoire.role: "application"
+      com.laboratoire.pedagogie: "conteneurisation"
+      com.laboratoire.service: "moodle"
+
+    networks:
+      - reseau-labo

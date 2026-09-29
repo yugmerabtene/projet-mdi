@@ -1,4 +1,24 @@
-# LAB — Page web conteneurisée
+# LAB — Conteneurisation, de la page web à la plateforme
+
+Deux laboratoires successifs, dans un même dépôt.
+
+| Laboratoire | Objet                                                   | Support          |
+| ----------- | -------------------------------------------------------- | ---------------- |
+| **1**       | une page web statique servie par **nginx**, sans privilège | ce document      |
+| **2**       | **Moodle**, plateforme de gestion, avec sa base de données | `moodle/README.md` |
+
+Le premier est délibérément minuscule : une page, un conteneur, une seule
+décision à prendre. Le second applique la même méthode à un logiciel qui ne
+tient pas en un conteneur, qui ne démarre pas en trois secondes, et qui ne peut
+fonctionner correctement que si quelqu'un a pensé à la persistance, à l'ordre de
+démarrage et à la langue.
+
+Les deux labs partagent la même exigence : **chaque décision est écrite, sa
+raison est expliquée, chaque commande est vérifiée avant d'être publiée.**
+
+---
+
+# LAB 1 — Page web conteneurisée
 
 Page web statique minimaliste, servie par **nginx** dans un conteneur
 **Docker**, exécutée sans aucun privilège et sans aucune dépendance
@@ -43,13 +63,15 @@ projet-mdi/
 │   ├── nginx.conf          # Configuration principale (processus, HTTP)
 │   └── conf.d/
 │       └── app.conf        # Comportement des adresses (routes, cache)
-└── site/                   # Contenu servi (le site lui-même)
-    ├── index.html
-    ├── erreurs/
-    │   └── 404.html
-    └── assets/
-        ├── styles.css
-        └── app.js
+├── site/                   # Contenu servi (le site lui-même)
+│   ├── index.html
+│   ├── erreurs/
+│   │   └── 404.html
+│   └── assets/
+│       ├── styles.css
+│       └── app.js
+└── moodle/                 # LAB 2 — plateforme Moodle, documentation dans
+    └── README.md             moodle/README.md
 ```
 
 Le découpage du site en trois fichiers (`index.html`, `styles.css`, `app.js`)
@@ -407,9 +429,13 @@ Livrable produit : une réponse argumentée.
   réseau interne de Compose. Le réseau de bridge est privé par défaut.
 - **Répartir la charge.** Voir les modes de répartition de trafic de nginx
   (`upstream`, `least_conn`, `ip_hash`).
+- **Passer au second laboratoire.** `moodle/README.md` reprend la même méthode
+  sur une plateforme complète : deux conteneurs, une base de données, des
+  volumes, une interface en français, et les pièges réellement rencontrés.
 
 ---
 
 ## 10. Licence
 
-MIT. Usage pédagogique libre.
+MIT. Usage pédagogique libre. Le second laboratoire, `moodle/`, est distribué
+sous la même licence ; Moodle lui-même relève de la GPL.

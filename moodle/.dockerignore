@@ -1,0 +1,74 @@
+# ===========================================================================
+# .dockerignore — fichiers exclus du contexte de construction de Moodle
+# ---------------------------------------------------------------------------
+# RÔLE DU FICHIER
+# À la construction, Docker envoie AU COMPLET le dossier moodle/ au démon.
+# Ce fichier liste ce qu'il ne faut pas envoyer.
+#
+# Trois raisons de s'en servir :
+#   1. SÉCURITÉ — un fichier .env présent dans le dossier serait COPIÉ DANS
+#      L'IMAGE si une instruction COPY visait le dossier entier. Or une image
+#      est publiée, sauvegardée, partagée. Même supprimé plus tard, l'ancien
+#      calque le contient. Le fichier .env contient les mots de passe du
+#      laboratoire : il ne doit JAMAIS entrer dans une image.
+#   2. VITESSE — envoyer des fichiers inutiles allonge chaque construction.
+#   3. STABILITÉ DU CACHE — un fichier qui change, tel qu'un journal ou un
+#      fichier de suivi, invalide le cache même sans rapport avec l'image.
+#
+# À NE PAS CONFONDRE AVEC .gitignore
+#   - .gitignore    : ce que Git ignore. Le fichier reste sur le poste.
+#   - .dockerignore : ce que la CONSTRUCTION ignore. Le fichier n'entre pas
+#                     dans l'image.
+# Les deux listes doivent se ressembler : un secret absent de .dockerignore
+# peut se retrouver dans l'image, tout en restant hors du dépôt. C'est le pire
+# des deux mondes.
+#
+# Le dépôt possède deux dossiers de construction distincts, donc deux contextes
+# distincts, donc deux fichiers .dockerignore : celui-ci pour le laboratoire
+# Moodle, celui de la racine pour le laboratoire de la page web.
+# ===========================================================================
+
+# --- Secrets : à exclure systématiquement ----------------------------------
+# Le motif est volontairement large : mieux vaut exclure un fichier inoffensif
+# que risquer de laisser passer un secret.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+.netrc
+credentials*
+secrets*
+
+# --- Git et documentation --------------------------------------------------
+# Ni l'historique ni les fichiers d'explication ne sont des ressources pour
+# l'image. Ils restent dans le dépôt, à disposition du lecteur.
+.git
+.gitignore
+.gitattributes
+README.md
+.env.example
+
+# --- Fichiers de travail ---------------------------------------------------
+# Les Secrets Moodle échouent parfois en laissant des traces. On ne construit
+# jamais depuis un poste qui a déjà exécuté la plateforme.
+moodledata/
+*.log
+tmp/
+
+# --- Système d'exploitation et éditeurs ------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Artefacts Docker ------------------------------------------------------
+# Le Dockerfile et le fichier Compose sont lus par le démon ; ils n'ont pas
+# vocation à être dans l'image qu'ils décrivent.
+Dockerfile
+.dockerignore
+compose.yaml
+compose.yml
