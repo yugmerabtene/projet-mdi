@@ -1,0 +1,74 @@
+# ===========================================================================
+# .dockerignore — fichiers exclus du contexte de construction
+# ---------------------------------------------------------------------------
+# RÔLE DU FICHIER
+# À la construction, Docker envoie AU COMPLET le dossier de contexte au démon.
+# Ce fichier liste ce qu'il ne faut pas envoyer.
+#
+# Trois raisons de s'en servir :
+#   1. SÉCURITÉ — un fichier .env ou une clé privée présents dans le dossier
+#      seraient COPIÉS DANS L'IMAGE si une instruction COPY pointait vers le
+#      dossier entier. Or une image est publiée, sauvegardée, partagée.
+#      Même si le fichier est supprimé plus tard, l'ancien calque le contient.
+#   2. VITESSE — envoyer le .git (qui peut peser plusieurs centaines de
+#      mégaoctets) allonge chaque construction, pour rien.
+#   3. STABILITÉ DU CACHE — un fichier qui change (un journal, un fichier de
+#      suivi) invalide le cache même s'il n'a aucun rapport avec l'image. Le
+#      build devient inutilement lent.
+#
+# ANALOGIE UTILE À DONNER AUX ÉTUDIANTS
+# C'est un filtre d'inclusion. La copie de travail est ce qu'on EXPORTE vers le
+# démon, pas ce qu'on a sur le disque. Un fichier absent d'ici n'existe pas
+# pendant la construction : un COPY qui le vise échoue.
+# ===========================================================================
+
+# --- Git : historique et configuration, inutiles à la construction ---------
+.git
+.gitignore
+.gitattributes
+
+# --- Secrets : à exclure systématiquement ----------------------------------
+# Rien de ce qui ressemble à une donnée d'authentification ne doit entrer
+# dans une image. Le motif est volontairement large : mieux vaut exclure un
+# fichier inoffensif que risquer de laisser un secret.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+.netrc
+.npmrc
+credentials*
+secrets*
+
+# --- Système d'exploitation et éditeurs ------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Fichiers de travail et documentation ----------------------------------
+# La documentation accompagne le code source, elle n'est pas une ressource du
+# site servi. Elle n'a donc rien à faire dans l'image finale.
+README.md
+LICENSE
+tracking.json
+
+# --- Artefacts Docker ------------------------------------------------------
+# Le Dockerfile est lu par le démon, il n'a pas besoin d'être dans l'image.
+Dockerfile
+.dockerignore
+compose.yaml
+compose.yml
+
+# --- Annuler l'exclusion : le fichier DOIT être envoyé ---------------------
+# Les motifs ci-dessus ignorent tout le dossier « nginx », or celui-ci est
+# précisément une source de COPY. Le dernier motif qui gagne l'emporte : on
+# le réinclus explicitement.
+# (Ici, aucune exclusion globale ne visait « nginx », la ligne est donc
+#  redondante. On la conserve volontairement : elle documente l'intention et
+#  protège contre l'ajout ultérieur d'un motif générique.)
+!nginx
+!nginx/**

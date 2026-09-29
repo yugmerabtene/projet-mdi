@@ -1,0 +1,112 @@
+# ===========================================================================
+# compose.yaml — orchestration du laboratoire
+# ---------------------------------------------------------------------------
+# RÔLE DU FICHIER
+# Docker sait construire et exécuter UN conteneur. Compose décrit un ensemble
+# de services qui travaillent ensemble, puis les lance d'une seule commande.
+#
+#   docker compose up --build   → construit l'image et démarre le service
+#   docker compose down         → arrête et supprime les conteneurs
+#   docker compose logs -f      → suit les journaux
+#
+# DIFFÉRENCE AVEC DOCKER RUN
+# Le fichier Compose fait partie du dépôt : il est versionné, relu et
+# reproductible. Une ligne « docker run » tapée dans un terminal ne l'est pas.
+# On versionne la commande, pas seulement le programme.
+#
+# NOM DU FICHIER
+# Compose reconnaît plusieurs noms (docker-compose.yml, compose.yaml…). On
+# retient compose.yaml, la forme recommandée par la spécification officielle.
+# ===========================================================================
+
+services:
+  # Identifiant du service. Il sert de nom de réseau et de préfixe des
+  # conteneurs. On ne le met pas en majuscules : Docker l'impose en minuscules
+  # et le convertir en majuscules ferait échouer la commande.
+  web:
+
+    # --- Construction de l'image -------------------------------------------
+    # "build" décrit COMMENT construire l'image. "image" nomme l'image
+    # produite. Les écrire tous les deux est utile : l'image peut ensuite être
+    # étiquetée (taguée) et publiée sur un registre sans avoir à la reconstruire.
+    build:
+      # Chemin du contexte de construction, relatif à ce fichier.
+      context: .
+      # Fichier de construction utilisé.
+      dockerfile: Dockerfile
+    image: lab-page-web:1.0.0
+
+    # --- Exécution ----------------------------------------------------------
+    # ports : correspondance entre le port de l'hôte et celui du conteneur.
+    # Format : PORT_HOTE:PORT_CONTENEUR. Seule la partie gauche s'applique à la
+    # machine du développeur ; la partie droite doit correspondre EXACTEMENT au
+    # port du EXPOSE du Dockerfile.
+    #
+    #   - "127.0.0.1:8080:8080"
+    #        ^^^^^^ l'hôte ne se répond que sur la boucle locale.
+    #
+    # Sans cette restriction, le service serait joignable depuis toutes les
+    # interfaces réseau de la machine, y compris le réseau du laboratoire ou
+    # celui de l'entreprise. Sur une machine partagée, c'est une fuite.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    # restart : politique de redémarrage en cas d'arrêt du processus.
+    #   no        : ne jamais redémarrer (valeur par défaut).
+    #   on-failure : redémarrer uniquement sur un code de sortie NON nul.
+    #   always     : redémarrer toujours.
+    # Le laboratoire utilise "no" : si l'étudiant arrête le conteneur pour
+    # examiner un journal, il ne veut pas le voir repartir tout seul.
+    restart: "no"
+
+    # read_only : monte la racine du système de fichiers en lecture seule.
+    # Une écriture non prévue échoue au lieu de modifier le conteneur. C'est
+    # une barrière de sécurité très efficace contre un grand nombre
+    # d'attaques : la charge utile ne peut pas installer de persistance.
+    # On déroge uniquement aux points d'écriture légitimes.
+    read_only: true
+
+    # tmpfs : montages en mémoire vive, inscriptibles malgré read_only.
+    # tmpfs est un système de fichiers temporaire, non persistant.
+    # (La montée de /tmp, absent ci-dessous, est fournie par la configuration
+    # nginx elle-même, qui y dirige ses fichiers temporaires.)
+    tmpfs:
+      - /tmp/nginx:mode=1777
+
+    # security_opt : options de sécurité appliquées par le noyau à ce
+    # conteneur, sans configuration de la part de l'utilisateur.
+    #   no-new-privileges : interdit à tout processus d'obtenir des droits
+    #   supplémentaires par un exécutable portant le bit « setuid » ou par
+    #   une élévation de privilèges. Combiné à USER nginx, c'est le meilleur
+    #   moyen de rendre une escalade de privilèges impossible.
+    security_opt:
+      - no-new-privileges:true
+
+    # cap_drop : retire des capacités Linux au processus.
+    # Par défaut, un conteneur dispose de plusieurs capacités puissantes
+    # (charger des modules noyau, modifier des comptes, …). Une page web n'en
+    # a besoin d'aucune. On les retire TOUTES : le conteneur est ainsi plus
+    # proche d'une prison que d'une machine virtuelle, ce qui est précisément
+    # l'effet recherché.
+    cap_drop:
+      - ALL
+
+    # mem_limit : plafond de mémoire. Un serveur qui consomme 256 Mio a un
+    # problème ; on préfère qu'il échoue bruyamment plutôt que d'affaiblir
+    # silencieusement la machine de développement.
+    # L'unité « m » est un Mio (mégaoctet binaire), et non un Mo (million
+    # d'octets) : la nuance paraît anodine, mais elle change de 5 % environ.
+    mem_limit: 256m
+
+    # logging : limite la taille des journaux conservés sur le disque. Sans
+    # limite, une boucle de redémarrage peut remplir le disque de la machine.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # label : étiquettes de découverte, utiles pour identifier le service.
+    labels:
+      com.laboratoire.role: "page-statique"
+      com.laboratoire.pedagogie: "conteneurisation"

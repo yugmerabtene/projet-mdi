@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  404.html — page d'erreur personnalisée
+  ----------------------------------------------------------------------------
+  RÔLE DU FICHIER
+  Quand une adresse demandée n'existe pas, nginx retourne le code HTTP 404 et
+  sert ce fichier. Sans lui, le navigateur afficherait la page d'erreur
+  générique de nginx, qui ne reprend ni la charte graphique ni les liens du
+  site.
+
+  DIFFÉRENCE AVEC LA PAGE D'ACCUEIL
+  Cette page ne charge volontairement AUCUNE feuille de style ni AUCUN script :
+  - le visiteur est perdu, il faut donc réduire au maximum le temps de
+    chargement et le nombre de requêtes ;
+  - la feuille de style est ici écrite en ligne, ce qui garantit qu'un
+    incident sur le fichier CSS ne supprime pas la page d'erreur.
+  ============================================================================
+-->
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Erreur 404 — page introuvable</title>
+
+    <style>
+      /* Styles inlines : voir l'en-tête du fichier pour la justification. */
+      :root {
+        --fond: #f6f7f9;
+        --texte: #16181d;
+        --accent: #2f5bea;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fond: #0e1116;
+          --texte: #e8eaed;
+          --accent: #7aa2ff;
+        }
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-content: center;
+        gap: 1rem;
+        padding: 2rem;
+        text-align: center;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--texte);
+        background-color: var(--fond);
+      }
+
+      .code {
+        margin: 0;
+        font-size: clamp(4rem, 18vw, 8rem);
+        font-weight: 700;
+        line-height: 1;
+        color: var(--accent);
+      }
+
+      .message {
+        margin: 0;
+        max-width: 45ch;
+      }
+
+      .lien {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+
+  <body>
+    <p class="code">404</p>
+    <p class="message">
+      L'adresse demandée n'existe pas sur ce serveur. Le lien est peut-être
+      erroné, ou la page a été déplacée.
+    </p>
+    <p><a class="lien" href="/">Revenir à l'accueil</a></p>
+  </body>
+</html>

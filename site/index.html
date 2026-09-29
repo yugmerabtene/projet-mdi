@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  index.html — page d'accueil du laboratoire « Page web conteneurisée »
+  ----------------------------------------------------------------------------
+  RÔLE DU FICHIER
+  Cet unique fichier HTML est le point d'entrée servi par le serveur web nginx.
+  Il ne contient que de la structure et du contenu : aucune mise en forme
+  (c'est le rôle de assets/styles.css) et aucun comportement (c'est le rôle de
+  assets/app.js).
+
+  POURQUOI CETTE SÉPARATION ?
+  Le principe « séparation des responsabilités » (en anglais : Separation of
+  Concerns) consiste à cloisonner chaque fichier dans une seule responsabilité :
+    - le HTML décrit la structure et le sens du document ;
+    - le CSS décrit l'apparence ;
+    - le JavaScript décrit le comportement.
+  Conséquence pratique : on peut remplacer la feuille de style sans toucher au
+  HTML, corriger une erreur de contenu sans casser la mise en forme, et
+  mettre la page en cache indépendamment de chaque type de ressource.
+
+  CONVENTIONS DE COMMENTAIRE UTILISÉES DANS CE FICHIER
+    === ... ===  séparation de grande partie du fichier
+    --- ... ---  sous-partie à l'intérieur d'une partie
+    Les commentaires sont en français et décrivent l'INTENTION, jamais
+    l'évidence. Écrire « ici on ouvre la balise body » n'apprend rien.
+  ============================================================================
+-->
+<html lang="fr">
+  <head>
+    <!--
+      ---------------------------------------------------------------------
+      1. MÉTADONNÉES DU DOCUMENT
+      ---------------------------------------------------------------------
+      Les balises <meta> ne produisent aucun contenu visible. Elles fournissent
+      au navigateur et aux moteurs de recherche des informations de contrôle.
+    -->
+
+    <!--
+      <meta charset="utf-8">
+      Doit être la PREMIÈRE balise de <head>. UTF-8 est le format d'encodage
+      standard : sans cette déclaration, le navigateur peut interpréter les
+      accents français (é, è, à) comme des caractères parasite.
+    -->
+    <meta charset="utf-8" />
+
+    <!--
+      <meta name="viewport">
+      Indique au navigateur mobile la largeur réelle de la fenêtre. Sans
+      cette ligne, un téléphone affiche la page en zoom arrière (l'écran
+      simule un écran d'ordinateur de 980 px de large). Avec elle, la mise en
+      page responsive du CSS fonctionne réellement.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Résumé de la page : affiché dans les résultats de recherche. -->
+    <meta
+      name="description"
+      content="Page web statique minimaliste servie par nginx dans un conteneur Docker."
+    />
+
+    <!--
+      Directive de sécurité : elle interdit au navigateur de deviner le type
+      MIME d'un fichier. Elle réduit la surface d'attaque de type
+      « confusion de type de contenu ».
+    -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
+    <!-- Nom de l'application : affiché dans l'onglet du navigateur. -->
+    <title>LAB — Page web conteneurisée</title>
+
+    <!--
+      ---------------------------------------------------------------------
+      2. RESSOURCES EXTERNES
+      ---------------------------------------------------------------------
+      NB : ce projet n'emploie AUCUNE bibliothèque tierce (ni CDN, ni
+      framework). C'est un choix pédagogique volontaire : la pile complète
+      tient dans trois fichiers et aucune dépendance ne peut casser la page
+      ou échouer silencieusement.
+    -->
+    <link rel="stylesheet" href="assets/styles.css" />
+
+    <!-- Police système : on évite un téléchargement externe. -->
+    <link rel="icon" href="data:," />
+  </head>
+
+  <body>
+    <!--
+      ---------------------------------------------------------------------
+      3. LIEN D'ÉVITEMENT (accessibilité)
+      ---------------------------------------------------------------------
+      Au clavier, un utilisateur peut « sauter » la navigation et aller
+      directement au contenu. Ce lien est masqué visuellement mais devient
+      visible dès qu'il reçoit le focus (règle .lien-evitement:focus du CSS).
+    -->
+    <a class="lien-evitement" href="#contenu">Aller au contenu principal</a>
+
+    <!--
+      ---------------------------------------------------------------------
+      4. EN-TÊTE
+      ---------------------------------------------------------------------
+      <header> délimite l'en-tête du document. Il ne s'agit PAS d'un <div> :
+      la balise sémantique permet aux lecteurs d'écran de naviguer par
+      région et aux moteurs de recherche de comprendre la hiérarchie.
+    -->
+    <header class="entete">
+      <div class="conteneur entete__interieur">
+        <p class="entete__marque">
+          <span class="entete__pastille" aria-hidden="true"></span>
+          LAB — Page web conteneurisée
+        </p>
+
+        <!--
+          Bouton de bascule du thème clair / sombre.
+          aria-pressed décrit l'ÉTAT du bouton (activé ou non), pas l'action :
+          c'est la convention attendue par les lecteurs d'écran.
+        -->
+        <button
+          class="bouton-theme"
+          type="button"
+          data-action="basculer-theme"
+          aria-pressed="false"
+        >
+          <span data-theme-icone>◐</span>
+          <span data-theme-libelle>Thème sombre</span>
+        </button>
+      </div>
+    </header>
+
+    <!--
+      <main> contient le contenu principal et UNIQUE de la page. C'est la
+      région que le lien d'évitement doit cibler. Une page ne doit pas
+      contenir plusieurs <main>.
+    -->
+    <main id="contenu" class="conteneur">
+      <!-- ================= Section de présentation ================= -->
+      <section class="hero">
+        <h1 class="hero__titre">
+          Une page web,<br />
+          une image Docker,<br />
+          <span class="hero__accent">zéro installation côté client.</span>
+        </h1>
+
+        <p class="hero__texte">
+          Ce que vous voyez est servi par <strong>nginx</strong>, installé dans
+          un <strong>conteneur Docker</strong>. Le serveur web est isolé du
+          système hôte : le supprimer revient à supprimer un dossier.
+        </p>
+
+        <!--
+          <dl> / <dt> / <dl> : liste de descriptions. C'est la balise
+          correcte pour une paire « intitulé → valeur », là où un tableau ou
+          une liste à puces serait un abuse de balisage.
+        -->
+        <dl class="faits">
+          <div class="fait">
+            <dt>Serveur web</dt>
+            <dd>nginx</dd>
+          </div>
+          <div class="fait">
+            <dt>Exécution</dt>
+            <dd>conteneur non privilégié</dd>
+          </div>
+          <div class="fait">
+            <dt>Dépendances front</dt>
+            <dd>aucune</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- ================= Section : état du serveur ================= -->
+      <!--
+        Cette carte appelle /api/infos en JavaScript. Le serveur répond avec du
+        JSON. C'est la démonstration qu'une même image peut servir à la fois
+        des fichiers statiques ET une API minimale, sans écrire une seule
+        ligne de langage serveur.
+      -->
+      <section class="carte" aria-labelledby="titre-etat">
+        <h2 id="titre-etat" class="carte__titre">État du serveur</h2>
+
+        <p class="carte__explication">
+          Le bouton ci-dessous interroge la route <code>/api/infos</code>.
+          Cette route est définie dans la configuration nginx, à l'intérieur
+          de l'image : aucun programme serveur n'est nécessaire.
+        </p>
+
+        <div class="carte__actions">
+          <button
+            class="bouton"
+            type="button"
+            data-action="interroger-serveur"
+          >
+            Interroger le serveur
+          </button>
+
+          <!--
+            zone de statut : aria-live="polite" annonce le résultat aux lecteurs
+            d'écran sans interrompre la lecture en cours. « polite » signifie
+            « attends que l'utilisateur soit disponible ».
+          -->
+          <p class="carte__statut" data-zone-statut aria-live="polite">
+            En attente d'une requête…
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Section : ce que fait l'image ================= -->
+      <section class="carte" aria-labelledby="titre-pile">
+        <h2 id="titre-pile" class="carte__titre">Ce que fait l'image</h2>
+
+        <ul class="liste">
+          <li>Sert les fichiers statiques en lecture seule.</li>
+          <li>Expose une route JSON minimale pour la démonstration.</li>
+          <li>
+            Répond à <code>/healthz</code> pour l'oracle de santé (healthcheck)
+            de Docker.
+          </li>
+          <li>
+            S'exécute avec un utilisateur non privilégié et n'occupe aucun
+            port privilégié du système hôte.
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <!-- <footer> : informations de second plan (auteur, licence, version). -->
+    <footer class="pied">
+      <div class="conteneur">
+        <p>Laboratoire de conteneurisation — usage pédagogique.</p>
+      </div>
+    </footer>
+
+    <!--
+      Script chargé en différé (defer) : le navigateur télécharge le fichier
+      en parallèle du HTML, mais ne l'exécute qu'une fois le document
+      entièrement analysé. Le DOM existe donc quand app.js le cherche.
+    -->
+    <script src="assets/app.js" defer></script>
+  </body>
+</html>

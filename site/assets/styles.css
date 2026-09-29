@@ -1,0 +1,525 @@
+/* ==========================================================================
+   styles.css — feuille de style unique du laboratoire
+   --------------------------------------------------------------------------
+   RÔLE DU FICHIER
+   Ce fichier décrit l'APPARENCE de la page. Il ne touche jamais au contenu :
+   il ne crée pas de texte, ne déplace pas de titre, il ne décide pas de
+   l'ordre de lecture. Cette discipline s'appelle le « modèle de présentation »
+   (en anglais : presentational hints) et garantit que la page reste lisible
+   même si la feuille de style échoue à se charger.
+
+   ORGANISATION DU FICHIER (du plus général au plus détaillé)
+     1. Variables        — les valeurs réutilisées, définies une seule fois
+     2. Réinitialisation  — mise à zéro neutre et prévisible
+     3. Bases typographiques
+     4. Utilitaires et composants réutilisables
+     5. Sections de la page, dans l'ordre du HTML
+     6. Adaptations (mobile, préférences système, accessibilité)
+
+   POURQUOI CETTE ORGANISATION ?
+   Plus la règle est générale, plus elle influence de choses ; il faut donc
+   écrire les règles génériques en premier, et les surcharges spécifiques
+   ensuite. Inverser cet ordre produit des conflits difficiles à diagnostiquer.
+   ========================================================================== */
+
+/* ==========================================================================
+   1. VARIABLES
+   --------------------------------------------------------------------------
+   Une variable CSS (ou « propriété personnalisée ») porte un nom, pas une
+   valeur figée. On écrit --espace-2 : 1rem une fois, puis on réutilise
+   var(--espace-2) partout.
+   Bénéfice : changer l'échelle d'espacement revient à changer six valeurs
+   au lieu de fouiller toute la feuille.
+
+   L_indentation ci-dessous est sur deux colonnes. La colonne de gauche nomme
+   la variable, la colonne de droite explique son rôle. Un commentaire
+   /* ... */ placé sur une ligne entière est lu par les navigateurs ; un
+   commentaire /* ... */ placé après une déclaration est ignoré. On utilise
+   donc la première forme pour la documentation.
+   ========================================================================== */
+
+:root {
+  /* --- Palette (thème clair, valeurs par défaut) ------------------------
+     Le contraste texte / fond (noir sur blanc) dépasse largement le seuil
+     d'accessibilité AA de 7:1 exigé pour du texte courant. */
+  --couleur-fond: #f6f7f9;
+  --couleur-surface: #ffffff;
+  --couleur-texte: #16181d;
+  --couleur-texte-doux: #5b6270; /* texte secondaire : contraste 4,5:1 */
+  --couleur-bordure: #dfe3e9;
+  --couleur-accent: #2f5bea;
+  --couleur-accent-contre: #ffffff;
+  --couleur-accent-doux: #e8edfd;
+
+  /* --- Typographie ------------------------------------------------------
+     Les valeurs sont exprimées en rem (root em) : 1rem vaut la taille de
+     police du document, définie plus bas à 100 %. Écrire les espacements en
+     rem plutôt qu'en px permet à l'utilisateur d'agrandir le texte via les
+     réglages de son navigateur sans casser la mise en page. */
+  --police-texte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --police-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
+  --taille-base: 1rem;
+  --ligne-base: 1.6;
+
+  /* --- Échelle d'espacement -------------------------------------------
+     Chaque valeur est le double de la précédente (0,25 ; 0,5 ; 1 ; 1,5 ;
+     2 ; 3 ; 4 rem). L'œil perçoit l'irrégularité d'un espacement mal
+     proportionné bien avant de pouvoir la nommer :Tenant une progression
+     géométrique regularisée, les espacements restent visuellement constants,
+     quelle que soit leur valeur absolue. */
+  --espace-1: 0.25rem;
+  --espace-2: 0.5rem;
+  --espace-3: 1rem;
+  --espace-4: 1.5rem;
+  --espace-5: 2rem;
+  --espace-6: 3rem;
+  --espace-7: 4rem;
+
+  /* --- Rayons, ombres, largeur de lecture ------------------------------ */
+  --rayon: 12px;
+  --rayon-plein: 999px;
+  --ombre-carte: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --largeur-max: 68rem;
+  --transition: 180ms ease;
+}
+
+/* --- Palette (thème sombre) ---------------------------------------------
+   Ce bloc ne fait qu'INVALIDER les variables définies plus haut. Comme tout
+   le reste de la feuille référence var(--couleur-texte) plutôt qu'une valeur
+   directe, ce seul bloc suffit à inverser l'ensemble du thème. C'est le
+   bénéfice concret des variables : un changement d'échelle, pas une
+   réécriture.
+
+   On s'appuie sur prefers-color-scheme pour que le système soit respecté
+   automatiquement. Le JavaScript de la page pourra ensuite surcharger ce
+   choix si l'utilisateur force un thème. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --couleur-fond: #0e1116;
+    --couleur-surface: #161b22;
+    --couleur-texte: #e8eaed;
+    --couleur-texte-doux: #9aa4b2;
+    --couleur-bordure: #2a313c;
+    --couleur-accent: #7aa2ff;
+    --couleur-accent-contre: #0e1116;
+    --couleur-accent-doux: #1b2437;
+    --ombre-carte: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* --- Thème sombre FORCÉ par l'utilisateur -------------------------------
+   Deux cas à distinguer, et c'est la subtilité centrale de ce bloc :
+
+     1. Le système est en thème clair et l'utilisateur force « sombre ».
+        → Ce bloc doit s'appliquer.
+     2. Le système est en thème sombre et l'utilisateur force « clair ».
+        → La requête de média ci-dessus s'applique TOUJOURS (elle est évaluée
+          en permanence) et annule ce bloc, car :root et [data-theme] ont la
+          même spécificité (0,1,0) : c'est l'ordre du fichier qui tranche, et
+          la requête de média est écrite AVANT.
+
+   Il faut donc traiter les deux sens, pas seulement le premier. La solution
+   ci-dessous ajoute deux règles de spécificité supérieure (un élément + un
+   attribut), qui l'emportent dans les deux cas sans recourir à !important. */
+html[data-theme="sombre"] {
+  --couleur-fond: #0e1116;
+  --couleur-surface: #161b22;
+  --couleur-texte: #e8eaed;
+  --couleur-texte-doux: #9aa4b2;
+  --couleur-bordure: #2a313c;
+  --couleur-accent: #7aa2ff;
+  --couleur-accent-contre: #0e1116;
+  --couleur-accent-doux: #1b2437;
+  --ombre-carte: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="clair"] {
+  --couleur-fond: #f6f7f9;
+  --couleur-surface: #ffffff;
+  --couleur-texte: #16181d;
+  --couleur-texte-doux: #5b6270;
+  --couleur-bordure: #dfe3e9;
+  --couleur-accent: #2f5bea;
+  --couleur-accent-contre: #ffffff;
+  --couleur-accent-doux: #e8edfd;
+  --ombre-carte: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+/* ==========================================================================
+   2. RÉINITIALISATION ET BASES
+   --------------------------------------------------------------------------
+   Chaque navigateur applique ses propres valeurs par défaut (marges, tailles
+   de titre, interlignes). On les remplace par un jeu unique et explicite, afin
+   que le rendu soit identique sur tous les navigateurs. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box; /* width inclut désormais padding et bordure */
+}
+
+html {
+  /* 100 % puis un rem = 16 px par défaut, mais l'utilisateur peut changer ce
+     réglage. On ne verrouille pas html { font-size: 16px } : cela annulerait
+     sa préférence d'accessibilité. */
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0; /* supprime la marge par défaut du navigateur */
+  min-height: 100vh;
+  font-family: var(--police-texte);
+  font-size: var(--taille-base);
+  line-height: var(--ligne-base);
+  color: var(--couleur-texte);
+  background-color: var(--couleur-fond);
+
+  /* Transition douce lors du changement de thème. */
+  transition: background-color var(--transition), color var(--transition);
+
+  /* Disposition verticale : l'en-tête et le pied sont collés aux extrémités,
+     le contenu principal occupe l'espace restant. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Les images et vidéos ne doivent jamais dépasser leur conteneur. */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ==========================================================================
+   3. BASES TYPOGRAPHIQUES
+   --------------------------------------------------------------------------
+   Les niveaux de titre sont choisis pour leur RANG sémantique (h1 = sujet de
+   la page, h2 = section), pas pour leur taille. La taille est décidée ici, en
+   CSS. C'est pourquoi on ne saute jamais de niveau. */
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--espace-3);
+  line-height: 1.2; /* interligne serré : adapté aux titres */
+  font-weight: 700;
+  letter-spacing: -0.02em; /* resserrage optique, léger mais perceptible */
+  text-wrap: balance; /* équilibre les lignes du titre (navigateurs récents) */
+}
+
+p {
+  margin: 0 0 var(--espace-3);
+}
+
+a {
+  color: var(--couleur-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Le code en ligne utilise la police à chasse fixe et un fond discret. */
+code {
+  font-family: var(--police-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
+  background-color: var(--couleur-accent-doux);
+  color: var(--couleur-texte);
+}
+
+/* Anneau de focus visible. On ne supprime JAMAIS l'outline : le remplacer
+   par un style plus propre est une amélioration, le supprimer est un défaut
+   d'accessibilité. */
+:focus-visible {
+  outline: 2px solid var(--couleur-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   4. UTILITAIRES ET COMPOSANTS
+   ========================================================================== */
+
+/* --- .conteneur : largeur maximale et gouttières latérales --------------
+   Élément le plus utilisé de la feuille. Centrer le contenu sur les très
+   grands écrans, tout en conservant des marges confortables sur mobile. */
+.conteneur {
+  width: 100%;
+  max-width: var(--largeur-max);
+  margin-inline: auto;
+  padding-inline: var(--espace-4);
+}
+
+/* --- .lien-evitement : lien d'évitement d'accessibilité ------------------
+   Masqué visuellement, mais toujours présent dans l'ordre de lecture.
+   On ne doit pas utiliser display: none (il sortirait du parcours de
+   navigation) ni visibility: hidden (il le ferait aussi). On le décale
+   hors écran et on le ramène au focus. */
+.lien-evitement {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--espace-2) var(--espace-3);
+  background: var(--couleur-accent);
+  color: var(--couleur-accent-contre);
+  border-radius: 0 0 var(--rayon) 0;
+}
+
+.lien-evitement:focus {
+  left: 0;
+}
+
+/* --- .bouton : apparence commune aux deux boutons ------------------------ */
+.bouton,
+.bouton-theme {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--couleur-bordure);
+  background-color: var(--couleur-surface);
+  color: var(--couleur-texte);
+  padding: var(--espace-2) var(--espace-4);
+  border-radius: var(--rayon-plein);
+  transition: background-color var(--transition), border-color var(--transition),
+    transform var(--transition);
+}
+
+.bouton:hover,
+.bouton-theme:hover {
+  background-color: var(--couleur-accent-doux);
+  border-color: var(--couleur-accent);
+}
+
+.bouton:active,
+.bouton-theme:active {
+  transform: translateY(1px);
+}
+
+.bouton[disabled] {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+/* --- .carte : bloc de contenu mis en valeur ----------------------------- */
+.carte {
+  background-color: var(--couleur-surface);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre-carte);
+  padding: var(--espace-5);
+  margin-bottom: var(--espace-5);
+}
+
+.carte__titre {
+  font-size: 1.35rem;
+}
+
+.carte__explication {
+  color: var(--couleur-texte-doux);
+}
+
+.carte__actions {
+  display: flex;
+  flex-wrap: wrap; /* le bouton passe à la ligne sur petit écran */
+  align-items: center;
+  gap: var(--espace-3);
+  margin-top: var(--espace-4);
+}
+
+.carte__statut {
+  margin: 0;
+  font-family: var(--police-mono);
+  font-size: 0.9rem;
+  color: var(--couleur-texte-doux);
+}
+
+/* --- .liste : puces classiques, avec retrait suspendu ------------------ */
+.liste {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.liste li {
+  margin-bottom: var(--espace-2);
+}
+
+/* --- .faits : grille de petits couples intitulé / valeur ---------------- */
+.faits {
+  display: grid;
+  gap: var(--espace-3);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: var(--espace-5) 0 0;
+}
+
+.fait {
+  background-color: var(--couleur-surface);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon);
+  padding: var(--espace-3) var(--espace-4);
+}
+
+/* <dt> est l'intitulé : on le distingue par la casse, pas par la couleur
+   seule (le daltonisme rend la couleur seule peu fiable). */
+.fait dt {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--couleur-texte-doux);
+}
+
+.fait dd {
+  margin: var(--espace-1) 0 0;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   5. SECTIONS DE LA PAGE
+   --------------------------------------------------------------------------
+   Ordre identique à celui du HTML : en-tête, contenu, pied de page. */
+
+/* --- En-tête ------------------------------------------------------------ */
+.entete {
+  border-bottom: 1px solid var(--couleur-bordure);
+  background-color: var(--couleur-surface);
+}
+
+.entete__interieur {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espace-3);
+  padding-block: var(--espace-3);
+}
+
+.entete__marque {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--espace-2);
+  font-weight: 600;
+}
+
+/* Pastille décorative : retirée du parcours de lecture avec aria-hidden. */
+.entete__pastille {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--couleur-accent);
+  display: inline-block;
+}
+
+.bouton-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-2);
+  font-size: 0.9rem;
+  padding: var(--espace-2) var(--espace-3);
+}
+
+/* --- Contenu principal -------------------------------------------------- */
+main {
+  flex: 1; /* occupe l'espace restant entre en-tête et pied (body est flex) */
+  padding-block: var(--espace-6) var(--espace-7);
+}
+
+/* --- Section de tête (hero) --------------------------------------------- */
+.hero {
+  margin-bottom: var(--espace-6);
+}
+
+.hero__titre {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  max-width: 20ch; /* évite des lignes trop longues, difficiles à lire */
+  margin-bottom: var(--espace-4);
+}
+
+/* clamp(min, préféré, max) : la taille suit la largeur de l'écran entre deux
+   bornes. C'est la façon idiomatique d'obtenir une typographie fluide sans
+   requête de média. */
+.hero__accent {
+  color: var(--couleur-accent);
+}
+
+.hero__texte {
+  max-width: 60ch; /* 60 caractères par ligne : longueur de lecture confortable */
+  color: var(--couleur-texte-doux);
+  font-size: 1.1rem;
+}
+
+/* --- Pied de page ------------------------------------------------------- */
+.pied {
+  border-top: 1px solid var(--couleur-bordure);
+  padding-block: var(--espace-4);
+  color: var(--couleur-texte-doux);
+  font-size: 0.9rem;
+}
+
+.pied p {
+  margin: 0;
+}
+
+/* ==========================================================================
+   6. ADAPTATIONS
+   --------------------------------------------------------------------------
+   Par convention mobile-first, on écrit la règle de base pour le plus petit
+   écran, puis on.progresse vers les écrans plus larges. Chaque requête de média
+   décrit ici ce qui CHANGE par rapport à la règle de base. */
+
+/* Sous 480 px, les boutons occupent toute la largeur : un target de moins de
+   44 px de haut est difficile à toucher au doigt. */
+@media (max-width: 480px) {
+  .carte__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bouton {
+    width: 100%;
+    padding-block: var(--espace-3);
+  }
+
+  .bouton-theme span[data-theme-libelle] {
+    /* Masque le libellé, garde l'icône. Lisible visuellement, et toujours
+       annoncé grâce à aria-label posé dans le HTML si besoin. */
+    display: none;
+  }
+}
+
+/* Préférence système « réduire les animations ». Respecter ce réglage est un
+   impératif d'accessibilité : les mouvements peuvent déclencher des nausées
+   chez les personnes sensibles au mouvement. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Impression : on masque les éléments interactifs, qui n'ont aucun sens sur
+   une feuille de papier. */
+@media print {
+  .bouton,
+  .bouton-theme,
+  .lien-evitement {
+    display: none;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

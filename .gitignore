@@ -1,0 +1,53 @@
+# ===========================================================================
+# .gitignore — fichiers exclus du suivi de version
+# ---------------------------------------------------------------------------
+# RÔLE DU FICHIER
+# Liste ce que Git ne doit PAS enregistrer dans l'historique.
+#
+# À NE PAS CONFONDRE AVEC .dockerignore
+#   - .gitignore     : ce que Git ignore. Un fichier ignoré reste sur le poste.
+#   - .dockerignore  : ce que la CONSTRUCTION ignore. Un fichier ignoré
+#                      n'entre pas dans l'image.
+# Les deux listes se ressemblent, mais une divergence est un risque : un secret
+# absent de .dockerignore peut se retrouver dans l'image, alors qu'il reste
+# sagement hors du dépôt.
+# ===========================================================================
+
+# --- Système d'exploitation -------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Éditeurs et outils ---------------------------------------------------
+.vscode/
+.idea/
+*.swp
+
+# --- Node : présent uniquement si la page gagne un jour un gestionnaire de
+#     dépendances. À ce jour : aucune dépendance, donc rien à installer.
+node_modules/
+npm-debug.log*
+
+# --- Python : même remarque, pour un éventuel générateur de site statique.
+__pycache__/
+*.py[cod]
+.venv/
+
+# --- Journaux et fichiers temporaires --------------------------------------
+*.log
+tmp/
+.DS_Store
+
+# --- Secrets ---------------------------------------------------------------
+# Ces fichiers ne doivent JAMAIS être enregistrés. Même masqués par accident,
+# ils resteraient dans l'historique, où n'importe qui pourrait les lire.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+.netrc
+.npmrc
+credentials*
+secrets*
