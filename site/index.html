@@ -40,16 +40,16 @@
       <meta charset="utf-8">
       Doit être la PREMIÈRE balise de <head>. UTF-8 est le format d'encodage
       standard : sans cette déclaration, le navigateur peut interpréter les
-      accents français (é, è, à) comme des caractères parasite.
+      accents français (é, è, à) comme des caractères parasites.
     -->
     <meta charset="utf-8" />
 
     <!--
       <meta name="viewport">
       Indique au navigateur mobile la largeur réelle de la fenêtre. Sans
-      cette ligne, un téléphone affiche la page en zoom arrière (l'écran
-      simule un écran d'ordinateur de 980 px de large). Avec elle, la mise en
-      page responsive du CSS fonctionne réellement.
+      cette ligne, un téléphone affiche la page en zoom arrière (le moteur de
+      rendu simule un écran de 980 px de large). Avec elle, la mise en page
+      adaptative du CSS fonctionne réellement.
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -63,8 +63,14 @@
       Directive de sécurité : elle interdit au navigateur de deviner le type
       MIME d'un fichier. Elle réduit la surface d'attaque de type
       « confusion de type de contenu ».
+
+      CORRECTION : cette balise était précédente. Elle est sans effet : la
+      directive X-Content-Type-Options n'est comprise par le navigateur que
+      lorsqu'elle arrive en EN-TÊTE HTTP, jamais dans le document. Elle est
+      dédupliquée ici en commentaire, et c'est nginx.conf / app.conf qui pose
+      l'en-tête réel — vérifié par « curl -I ». La laisser en place
+      Donnerait l'illusion d'une protection que le navigateur ignore.
     -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
 
     <!-- Nom de l'application : affiché dans l'onglet du navigateur. -->
     <title>LAB — Page web conteneurisée</title>
@@ -114,14 +120,23 @@
           Bouton de bascule du thème clair / sombre.
           aria-pressed décrit l'ÉTAT du bouton (activé ou non), pas l'action :
           c'est la convention attendue par les lecteurs d'écran.
+
+          CORRECTION : aria-label est positionné ICI, et non laissé au CSS.
+          Sous 480 px, la feuille de style masque le libellé visible
+          (span[data-theme-libelle]) : le bouton se retrouvait réduit au seul
+          glyphe « ◐ », sans aucun texte accessible. Un glyphe n'est pas
+          interprété de façon fiable par un lecteur d'écran : le bouton
+          devenait « button » sans nom. aria-label garantit le nom quelle que
+          soit la largeur, le CSS ne pilotant plus que l'affichage.
         -->
         <button
           class="bouton-theme"
           type="button"
           data-action="basculer-theme"
           aria-pressed="false"
+          aria-label="Basculer le thème clair et sombre"
         >
-          <span data-theme-icone>◐</span>
+          <span data-theme-icone aria-hidden="true">◐</span>
           <span data-theme-libelle>Thème sombre</span>
         </button>
       </div>

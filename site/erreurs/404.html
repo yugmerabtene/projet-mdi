@@ -23,6 +23,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Erreur 404 — page introuvable</title>
 
+    <link rel="icon" href="data:," />
+
+    <!--
+      En-tête HTTP « Cache-Control: no-store » posé par app.conf : cette page
+      ne doit jamais être conservée. Un cache renverrait cette erreur pour une
+      adresse redevenue valide.
+    -->
+
     <style>
       /* Styles inlines : voir l'en-tête du fichier pour la justification. */
       :root {
@@ -50,6 +58,24 @@
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         color: var(--texte);
         background-color: var(--fond);
+      }
+
+      /* Respect du réglage système « réduire les animations ». Cette page
+         n'anime rien, mais la règle est posée pour rester cohérente si une
+         transition y est ajoutée plus tard. */
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+
+      /* Anneau de focus visible : indispensable pour la navigation au clavier
+         sur le seul lien de retour. */
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 4px;
       }
 
       .code {

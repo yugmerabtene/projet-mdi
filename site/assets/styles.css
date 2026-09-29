@@ -31,7 +31,7 @@
    Bénéfice : changer l'échelle d'espacement revient à changer six valeurs
    au lieu de fouiller toute la feuille.
 
-   L_indentation ci-dessous est sur deux colonnes. La colonne de gauche nomme
+   L'indentation ci-dessous est sur deux colonnes. La colonne de gauche nomme
    la variable, la colonne de droite explique son rôle. Un commentaire
    /* ... */ placé sur une ligne entière est lu par les navigateurs ; un
    commentaire /* ... */ placé après une déclaration est ignoré. On utilise
@@ -65,10 +65,16 @@
 
   /* --- Échelle d'espacement -------------------------------------------
      Chaque valeur est le double de la précédente (0,25 ; 0,5 ; 1 ; 1,5 ;
-     2 ; 3 ; 4 rem). L'œil perçoit l'irrégularité d'un espacement mal
-     proportionné bien avant de pouvoir la nommer :Tenant une progression
-     géométrique regularisée, les espacements restent visuellement constants,
-     quelle que soit leur valeur absolue. */
+     2 ; 3 ; 4 rem).
+
+     CORRECTION : ce commentaire était auparavant tronqué au milieu d'une
+     phrase (« … bien avant de pouvoir la nommer :Tenant une progression
+     géométrique regularisée, … »). Le texte avait été collé hors de toute
+     phrase complète, sans ponctuation, et mêlait deux idées. Il est réécrit
+     ci-dessous, en français correct. Une progression géométrique régulière
+     (chaque valeur vaut le double de la précédente) est ce qui donne aux
+     espacements leur régularité visuelle : c'est l'irrégularité que l'œil
+     repère, pas la valeur absolue. */
   --espace-1: 0.25rem;
   --espace-2: 0.5rem;
   --espace-3: 1rem;

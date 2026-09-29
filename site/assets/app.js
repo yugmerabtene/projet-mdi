@@ -33,6 +33,15 @@
 const CLE_THEME = "lab-theme"; // clé du thème dans localStorage
 const URL_INFOS = "/api/infos"; // route interrogée par le bouton
 
+/* La requête de média qui décrit le thème du système d'exploitation. On la
+   mémorise dans une variable de portée globale (ici : l'objet global window
+   étendu) parce qu'il faut pouvoir se désabonner quand l'utilisateur fait
+   enfin un choix explicite. Sans cela, un changement de thème du système
+   RÉAFFICHERAIT le libellé du bouton alors que la page, elle, reste forcée :
+   le bouton annoncerait alors « Thème clair » sur une page claire. */
+let mediaSysteme = null;
+let refléterSysteme = null;
+
 /* document.querySelector renvoie le PREMIER élément correspondant au
    sélecteur, ou null si aucun ne correspond. Le sélecteur peut être un
    identifiant (#zone), une classe (.bouton) ou une balise. */
@@ -96,14 +105,55 @@ function enregistrerTheme(theme) {
 }
 
 function basculerTheme() {
-  const themeActuel = lireThemeEnregistre();
+  // CORRECTION : on bascule à partir du thème RÉELMENT appliqué, et non du
+  // thème enregistré. Sur un poste réglé en thème sombre sans choix mémorisé,
+  // l'ancien code posait « clair » au premier clic : la page ne changeait
+  // visiblement pas, et l'utilisateur croyait le bouton cassé.
+  const themeApplique = document.documentElement.getAttribute("data-theme");
+  const sombreSysteme =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const themeActuel = themeApplique || (sombreSysteme ? "sombre" : "clair");
+
   const themeSuivant = themeActuel === "sombre" ? "clair" : "sombre";
   enregistrerTheme(themeSuivant);
   appliquerTheme(themeSuivant);
+
+  // Un choix explicite prime désormais sur le réglage du système : on se
+  // désabonne, sinon le libellé du bouton se désynchroniserait de la page.
+  if (mediaSysteme && refléterSysteme) {
+    mediaSysteme.removeEventListener("change", refléterSysteme);
+    mediaSysteme = null;
+    refléterSysteme = null;
+  }
 }
 
 if (boutonTheme) {
-  appliquerTheme(lireThemeEnregistre() || "clair");
+  // CORRECTION : on n'applique un thème que si l'utilisateur en a choisi un.
+  // Écrire data-theme="clair" par défaut écrasait la requête de média
+  // « prefers-color-scheme » du CSS : un poste réglé en thème sombre
+  // s'affichait en clair, et la règle de redémarrage ci-dessous était inopérante.
+  // Sans choix enregistré, l'attribut reste absent et le CSS tranche seul.
+  const themeEnregistre = lireThemeEnregistre();
+  if (themeEnregistre) {
+    appliquerTheme(themeEnregistre);
+  } else if (typeof window.matchMedia === "function") {
+    // Le bouton doit refléter l'état RÉEL de la page. Sans thème forcé, c'est
+    // le réglage du système qui décide : on l'interroge par media queries.
+    mediaSysteme = window.matchMedia("(prefers-color-scheme: dark)");
+    refléterSysteme = () => {
+      const theme = mediaSysteme.matches ? "sombre" : "clair";
+      boutonTheme.setAttribute("aria-pressed", String(theme === "sombre"));
+      const cible = boutonTheme.querySelector("[data-theme-libelle]");
+      if (cible) cible.textContent = theme === "sombre" ? "Thème clair" : "Thème sombre";
+    };
+    refléterSysteme();
+    mediaSysteme.addEventListener("change", refléterSysteme);
+  } else {
+    // Navigateur très ancien, sans media queries : on reste sur le thème clair,
+    // seul comportement défini par le CSS à ce stade.
+    appliquerTheme("clair");
+  }
   boutonTheme.addEventListener("click", basculerTheme);
 }
 
